@@ -15,18 +15,18 @@
 "  1.2:
 "    - use autoload script
 
+if exists("g:load_black")
+  finish
+endif
+
 if v:version < 700 || !has('python3')
     func! __BLACK_MISSING()
-        echo "The black.vim plugin requires vim7.0+ with Python 3.6 support."
+        echo "The black.vim plugin requires vim7.0+ with Python 3.9 support."
     endfunc
     command! Black :call __BLACK_MISSING()
     command! BlackUpgrade :call __BLACK_MISSING()
     command! BlackVersion :call __BLACK_MISSING()
     finish
-endif
-
-if exists("g:load_black")
-  finish
 endif
 
 let g:load_black = "py1.0"
@@ -63,15 +63,20 @@ endif
 if !exists("g:black_target_version")
   let g:black_target_version = ""
 endif
+if !exists("g:black_use_virtualenv")
+  let g:black_use_virtualenv = 1
+endif
+if !exists("g:black_preview")
+  let g:black_preview = 0
+endif
 
 function BlackComplete(ArgLead, CmdLine, CursorPos)
   return [
-\    'target_version=py27',
-\    'target_version=py36',
-\    'target_version=py37',
-\    'target_version=py38',
 \    'target_version=py39',
 \    'target_version=py310',
+\    'target_version=py311',
+\    'target_version=py312',
+\    'target_version=py313',
 \  ]
 endfunction
 

@@ -4,26 +4,27 @@ An overview on contributing to the _Black_ project.
 
 ## Technicalities
 
-Development on the latest version of Python is preferred. As of this writing it's 3.9.
-You can use any operating system.
+Development on the latest version of Python is preferred. You can use any operating
+system.
 
-Install all development dependencies using:
+First clone the _Black_ repository:
 
 ```console
-$ pipenv install --dev
-$ pipenv shell
-$ pre-commit install
+$ git clone https://github.com/psf/black.git
+$ cd black
 ```
 
-If you haven't used `pipenv` before but are comfortable with virtualenvs, just run
-`pip install pipenv` in the virtualenv you're already using and invoke the command above
-from the cloned _Black_ repo. It will do the correct thing.
-
-Non pipenv install works too:
+Then install development dependencies inside a virtual environment of your choice, for
+example:
 
 ```console
-$ pip install -r test_requirements.txt
-$ pip install -e .[d]
+$ python3 -m venv .venv
+$ source .venv/bin/activate # activation for linux and mac
+$ .venv\Scripts\activate # activation for windows
+
+(.venv)$ pip install -r test_requirements.txt
+(.venv)$ pip install -e ".[d]"
+(.venv)$ pre-commit install
 ```
 
 Before submitting pull requests, run lints and tests with the following commands from
@@ -31,69 +32,125 @@ the root of the black repo:
 
 ```console
 # Linting
-$ pre-commit run -a
+(.venv)$ pre-commit run -a
 
 # Unit tests
-$ tox -e py
+(.venv)$ tox -e py
 
 # Optional Fuzz testing
-$ tox -e fuzz
+(.venv)$ tox -e fuzz
 
-# Optional CI run to test your changes on many popular python projects
-$ black-primer [-k -w /tmp/black_test_repos]
+# Format Black itself
+(.venv)$ tox -e run_self
 ```
+
+### Development
+
+Further examples of invoking the tests
+
+```console
+# Run all of the above mentioned, in parallel
+(.venv)$ tox --parallel=auto
+
+# Run tests on a specific python version
+(.venv)$ tox -e py39
+
+# Run an individual test
+(.venv)$ pytest -k <test name>
+
+# Pass arguments to pytest
+(.venv)$ tox -e py -- --no-cov
+
+# Print full tree diff, see documentation below
+(.venv)$ tox -e py -- --print-full-tree
+
+# Disable diff printing, see documentation below
+(.venv)$ tox -e py -- --print-tree-diff=False
+```
+
+### Testing
+
+All aspects of the _Black_ style should be tested. Normally, tests should be created as
+files in the `tests/data/cases` directory. These files consist of up to three parts:
+
+- A line that starts with `# flags: ` followed by a set of command-line options. For
+  example, if the line is `# flags: --preview --skip-magic-trailing-comma`, the test
+  case will be run with preview mode on and the magic trailing comma off. The options
+  accepted are mostly a subset of those of _Black_ itself, except for the
+  `--minimum-version=` flag, which should be used when testing a grammar feature that
+  works only in newer versions of Python. This flag ensures that we don't try to
+  validate the AST on older versions and tests that we autodetect the Python version
+  correctly when the feature is used. For the exact flags accepted, see the function
+  `get_flags_parser` in `tests/util.py`. If this line is omitted, the default options
+  are used.
+- A block of Python code used as input for the formatter.
+- The line `# output`, followed by the output of _Black_ when run on the previous block.
+  If this is omitted, the test asserts that _Black_ will leave the input code unchanged.
+
+_Black_ has two pytest command-line options affecting test files in `tests/data/` that
+are split into an input part, and an output part, separated by a line with`# output`.
+These can be passed to `pytest` through `tox`, or directly into pytest if not using
+`tox`.
+
+#### `--print-full-tree`
+
+Upon a failing test, print the full concrete syntax tree (CST) as it is after processing
+the input ("actual"), and the tree that's yielded after parsing the output ("expected").
+Note that a test can fail with different output with the same CST. This used to be the
+default, but now defaults to `False`.
+
+#### `--print-tree-diff`
+
+Upon a failing test, print the diff of the trees as described above. This is the
+default. To turn it off pass `--print-tree-diff=False`.
 
 ### News / Changelog Requirement
 
 `Black` has CI that will check for an entry corresponding to your PR in `CHANGES.md`. If
 you feel this PR does not require a changelog entry please state that in a comment and a
 maintainer can add a `skip news` label to make the CI pass. Otherwise, please ensure you
-have a line in the following format:
+have a line in the following format added below the appropriate header:
 
 ```md
 - `Black` is now more awesome (#X)
 ```
 
+<!---
+The Next PR Number link uses HTML because of a bug in MyST-Parser that double-escapes the ampersand, causing the query parameters to not be processed.
+MyST-Parser issue: https://github.com/executablebooks/MyST-Parser/issues/760
+MyST-Parser stalled fix PR: https://github.com/executablebooks/MyST-Parser/pull/929
+-->
+
 Note that X should be your PR number, not issue number! To workout X, please use
-[Next PR Number](https://ichard26.github.io/next-pr-number/?owner=psf&name=black). This
-is not perfect but saves a lot of release overhead as now the releaser does not need to
-go back and workout what to add to the `CHANGES.md` for each release.
+<a href="https://ichard26.github.io/next-pr-number/?owner=psf&name=black">Next PR
+Number</a>. This is not perfect but saves a lot of release overhead as now the releaser
+does not need to go back and workout what to add to the `CHANGES.md` for each release.
 
 ### Style Changes
 
 If a change would affect the advertised code style, please modify the documentation (The
 _Black_ code style) to reflect that change. Patches that fix unintended bugs in
-formatting don't need to be mentioned separately though.
+formatting don't need to be mentioned separately though. If the change is implemented
+with the `--preview` flag, please include the change in the future style document
+instead and write the changelog entry under the dedicated "Preview style" heading.
 
 ### Docs Testing
 
 If you make changes to docs, you can test they still build locally too.
 
 ```console
-$ pip install -r docs/requirements.txt
-$ pip install [-e] .[d]
-$ sphinx-build -a -b html -W docs/ docs/_build/
+(.venv)$ pip install -r docs/requirements.txt
+(.venv)$ pip install -e ".[d]"
+(.venv)$ sphinx-build -a -b html -W docs/ docs/_build/
 ```
-
-## black-primer
-
-`black-primer` is used by CI to pull down well-known _Black_ formatted projects and see
-if we get source code changes. It will error on formatting changes or errors. Please run
-before pushing your PR to see if you get the actions you would expect from _Black_ with
-your PR. You may need to change
-[primer.json](https://github.com/psf/black/blob/main/src/black_primer/primer.json)
-configuration for it to pass.
-
-For more `black-primer` information visit the
-[documentation](./gauging_changes.md#black-primer).
 
 ## Hygiene
 
 If you're fixing a bug, add a test. Run it first to confirm it fails, then fix the bug,
-run it again to confirm it's really fixed.
+and run the test again to confirm it's really fixed.
 
-If adding a new feature, add a test. In fact, always add a test. But wait, before adding
-any large feature, first open an issue for us to discuss the idea first.
+If adding a new feature, add a test. In fact, always add a test. If adding a large
+feature, please first open an issue to discuss it beforehand.
 
 ## Finally
 

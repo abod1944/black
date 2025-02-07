@@ -7,29 +7,20 @@ import traceback
 import venv
 import zipfile
 from argparse import ArgumentParser, Namespace
+from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache, partial
 from pathlib import Path
-from typing import (  # type: ignore # typing can't see Literal
-    Generator,
-    List,
-    Literal,
-    NamedTuple,
-    Optional,
-    Tuple,
-    Union,
-    cast,
-)
+from typing import NamedTuple, Optional, Union, cast
 from urllib.request import urlopen, urlretrieve
 
 PYPI_INSTANCE = "https://pypi.org/pypi"
 PYPI_TOP_PACKAGES = (
-    "https://hugovk.github.io/top-pypi-packages/top-pypi-packages-{days}-days.json"
+    "https://hugovk.github.io/top-pypi-packages/top-pypi-packages-30-days.min.json"
 )
 INTERNAL_BLACK_REPO = f"{tempfile.gettempdir()}/__black"
 
 ArchiveKind = Union[tarfile.TarFile, zipfile.ZipFile]
-Days = Union[Literal[30], Literal[365]]
 
 subprocess.run = partial(subprocess.run, check=True)  # type: ignore
 # https://github.com/python/mypy/issues/1484
@@ -64,8 +55,8 @@ def get_pypi_download_url(package: str, version: Optional[str]) -> str:
     return cast(str, source["url"])
 
 
-def get_top_packages(days: Days) -> List[str]:
-    with urlopen(PYPI_TOP_PACKAGES.format(days=days)) as page:
+def get_top_packages() -> list[str]:
+    with urlopen(PYPI_TOP_PACKAGES) as page:
         result = json.load(page)
 
     return [package["project"] for package in result["rows"]]
@@ -128,13 +119,12 @@ DEFAULT_SLICE = slice(None)  # for flake8
 
 def download_and_extract_top_packages(
     directory: Path,
-    days: Days = 365,
     workers: int = 8,
     limit: slice = DEFAULT_SLICE,
 ) -> Generator[Path, None, None]:
     with ThreadPoolExecutor(max_workers=workers) as executor:
         bound_downloader = partial(get_package, version=None, directory=directory)
-        for package in executor.map(bound_downloader, get_top_packages(days)[limit]):
+        for package in executor.map(bound_downloader, get_top_packages()[limit]):
             if package is not None:
                 yield package
 
@@ -161,7 +151,7 @@ def git_switch_branch(
     subprocess.run(args, cwd=repo)
 
 
-def init_repos(options: Namespace) -> Tuple[Path, ...]:
+def init_repos(options: Namespace) -> tuple[Path, ...]:
     options.output.mkdir(exist_ok=True)
 
     if options.top_packages:
@@ -217,7 +207,7 @@ def format_repo_with_version(
     git_switch_branch(black_version.version, repo=black_repo)
     git_switch_branch(current_branch, repo=repo, new=True, from_branch=from_branch)
 
-    format_cmd: List[Union[Path, str]] = [
+    format_cmd: list[Union[Path, str]] = [
         black_runner(black_version.version, black_repo),
         (black_repo / "black.py").resolve(),
         ".",
@@ -233,7 +223,7 @@ def format_repo_with_version(
     return current_branch
 
 
-def format_repos(repos: Tuple[Path, ...], options: Namespace) -> None:
+def format_repos(repos: tuple[Path, ...], options: Namespace) -> None:
     black_versions = tuple(
         BlackVersion(*version.split(":")) for version in options.versions
     )
@@ -254,11 +244,9 @@ def format_repos(repos: Tuple[Path, ...], options: Namespace) -> None:
 
 
 def main() -> None:
-    parser = ArgumentParser(
-        description="""Black Gallery is a script that
+    parser = ArgumentParser(description="""Black Gallery is a script that
     automates the process of applying different Black versions to a selected
-    PyPI package and seeing the results between versions."""
-    )
+    PyPI package and seeing the results between versions.""")
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-p", "--pypi-package", help="PyPI package to download.")

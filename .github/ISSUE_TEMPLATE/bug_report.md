@@ -12,11 +12,13 @@ current development version. To confirm this, you have three options:
 
 1. Update Black's version if a newer release exists: `pip install -U black`
 2. Use the online formatter at <https://black.vercel.app/?version=main>, which will use
-   the latest main branch.
+   the latest main branch. Note that the online formatter currently runs on
+   an older version of Python and may not support newer syntax, such as the
+   extended f-string syntax added in Python 3.12.
 3. Or run _Black_ on your machine:
    - create a new virtualenv (make sure it's the same Python version);
    - clone this repository;
-   - run `pip install -e .[d,python2]`;
+   - run `pip install -e .[d]`;
    - run `pip install -r test_requirements.txt`
    - make sure it's sane by running `python -m pytest`; and
    - run `black` like you did last time.
